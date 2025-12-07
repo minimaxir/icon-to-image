@@ -1,0 +1,47 @@
+[build-system]
+requires = ["maturin>=1.4,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "icon-to-image"
+version = "0.1.0"
+description = "Fast Font Awesome icon to image renderer with Python bindings"
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.8"
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Rust",
+    "Topic :: Multimedia :: Graphics",
+]
+keywords = ["fontawesome", "icon", "image", "rendering", "rust"]
+
+[project.scripts]
+icon-to-image = "icon_to_image:main"
+
+[project.optional-dependencies]
+dev = ["pytest>=7.0", "pillow>=9.0"]
+
+[tool.maturin]
+features = ["python"]
+python-source = "python"
+module-name = "icon_to_image"
+strip = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+
+[tool.mypy]
+python_version = "3.8"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true

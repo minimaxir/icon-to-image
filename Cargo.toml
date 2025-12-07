@@ -1,0 +1,50 @@
+[package]
+name = "icon-to-image"
+version = "0.1.0"
+edition = "2021"
+description = "Fast icon font to image renderer with Python bindings"
+license = "MIT"
+
+[lib]
+name = "icon_to_image"
+crate-type = ["cdylib", "rlib"]
+
+[[bin]]
+name = "icon-to-image"
+path = "src/main.rs"
+required-features = []
+
+[features]
+default = []
+python = ["pyo3/extension-module"]
+
+[dependencies]
+# Font rendering
+ab_glyph = "0.2"
+
+# Image processing
+image = { version = "0.25", default-features = false, features = ["png", "webp"] }
+
+# Python bindings
+pyo3 = { version = "0.22", optional = true }
+
+# Error handling
+thiserror = "2"
+anyhow = "1"
+
+# CSS parsing - use lightweight regex-based approach
+regex = "1"
+once_cell = "1"
+
+# Parallelism for supersampling
+rayon = "1"
+
+# CLI
+clap = { version = "4", features = ["derive"] }
+
+[profile.release]
+lto = true
+codegen-units = 1
+opt-level = "z"
+strip = true
+panic = "abort"
