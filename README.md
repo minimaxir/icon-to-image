@@ -4,13 +4,13 @@ A high-performance Rust library with Python bindings for rendering [Font Awesome
 
 Features:
 
-- Extremely fast icon rendering due to `ab_glyph` (~10ms for a 512x512 image)
+- Extremely fast icon rendering (~10ms for a 512x512 image)
 - Python bindings via PyO3
-- No Python dependencies: `Pillow` is optional only if using an image object
+- No Python dependencies: `Pillow` is optional only if using as an image object
 - Supersampling for high-quality antialiased output (2x by default)
-- PNG and WebP output formats
-- Customizable icon and background colors (hex and RGB/RGBA), including transparency
-- Flexible positioning in large canvases with anchors and offsets
+- PNG and WebP output formats, including transparency
+- Customizable icon and background colors (hex and RGB/RGBA)
+- Flexible icon positioning in large canvases with anchors and offsets
 - Command-line interface for both Rust and Python
 
 _**Disclosure:** This library was mostly coded with the assistance of Claude 4.5 Opus. However, I personally have reviewed all code to ensure it is accurate, have added numerous tests and demo examples to ensure it works as both intended and advertised, and have edited documentation and comments to provide greater signal as to how the package operates. I have given this project the same care and attention as I would give a project I have written from scratch._
@@ -125,8 +125,8 @@ gray_ghost = renderer.render_icon(
 ### Brand Icons
 
 ```python
-github = renderer.render_icon("github", icon_color="#333333", background_color=None)
-python = renderer.render_icon("python", icon_color="#3776AB", background_color=None)
+github = renderer.render_icon("github", icon_color="#333333")
+python = renderer.render_icon("python", icon_color="#3776AB")
 ```
 
 ![](docs/combined_icons_brands.webp)
