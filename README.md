@@ -45,14 +45,17 @@ Both the Rust binary and Python package provide a CLI for rendering icons.
 The list of included icons can be found on [Font Awesome's Icon Grid](https://fontawesome.com/search?ic=free-collection) and filtering to "Free" icons. The icon names do not use the `fa` prefix.
 
 ```bash
-# View CLI documentation
+# (Python) View CLI documentation
 icon-to-image --help
+
+# (Rust) View CLI documentation
+cargo run -- --help
 
 # Render a heart icon to PNG
 icon-to-image heart heart.png
 
 # Render with custom color and size
-icon-to-image star star.png --color "#FFD700" --size 512
+icon-to-image star star.png --color "#FFD700" --size 256
 
 # Render with transparent background
 icon-to-image github logo.png --color "#333333" --background transparent
