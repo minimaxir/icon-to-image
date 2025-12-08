@@ -36,7 +36,8 @@ dev = ["pytest>=7.0", "pillow>=9.0"]
 
 [tool.maturin]
 features = ["python"]
-module-name = "icon_to_image"
+python-source = "python"
+module-name = "icon_to_image._native"
 strip = true
 
 [tool.pytest.ini_options]

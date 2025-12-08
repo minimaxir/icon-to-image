@@ -709,7 +709,7 @@ impl IconRenderer {
 
 /// Python module definition.
 #[pymodule]
-fn icon_to_image(m: &Bound<'_, PyModule>) -> PyResult<()> {
+fn _native(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<IconRenderer>()?;
     m.add_class::<HorizontalAnchor>()?;
     m.add_class::<VerticalAnchor>()?;

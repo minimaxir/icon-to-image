@@ -83,56 +83,54 @@ class TestRenderIcon:
     """Tests for icon rendering."""
 
     def test_render_default(self, renderer: IconRenderer) -> None:
-        """Test rendering with default parameters."""
-        png_data = renderer.render_icon("heart")
-        assert isinstance(png_data, bytes)
-        assert len(png_data) > 0
-        # Verify it's a valid PNG
-        img = Image.open(io.BytesIO(png_data))
-        assert img.format == "PNG"
-        assert img.size == (1024, 1024)
+        """Test rendering with default parameters returns PIL Image."""
+        img = renderer.render_icon("heart")
+        # render_icon returns a PIL Image, not bytes
+        assert img.mode == "RGBA"
+        # Default canvas size is 512x512 per the API
+        assert img.size == (512, 512)
 
     def test_render_custom_size(self, renderer: IconRenderer) -> None:
         """Test rendering with custom canvas size."""
-        png_data = renderer.render_icon("star", canvas_width=256, canvas_height=512)
-        img = Image.open(io.BytesIO(png_data))
+        img = renderer.render_icon("star", canvas_width=256, canvas_height=512)
         assert img.size == (256, 512)
 
     def test_render_icon_size(self, renderer: IconRenderer) -> None:
         """Test rendering with custom icon size."""
-        small_png = renderer.render_icon("heart", icon_size=100, canvas_width=256)
-        large_png = renderer.render_icon("heart", icon_size=200, canvas_width=256)
+        # Use render_icon_bytes to compare raw bytes
+        small_png = renderer.render_icon_bytes("heart", icon_size=100, canvas_width=256)
+        large_png = renderer.render_icon_bytes("heart", icon_size=200, canvas_width=256)
         # Different sizes should produce different results
         assert small_png != large_png
 
     def test_render_webp(self, renderer: IconRenderer) -> None:
-        """Test rendering to WebP format."""
-        webp_data = renderer.render_icon("heart", output_format=OutputFormat.WebP)
+        """Test rendering to WebP format via render_icon_bytes."""
+        webp_data = renderer.render_icon_bytes("heart", output_format=OutputFormat.WebP)
         assert isinstance(webp_data, bytes)
         img = Image.open(io.BytesIO(webp_data))
         assert img.format == "WEBP"
 
     def test_render_icon_color_hex(self, renderer: IconRenderer) -> None:
         """Test rendering with hex color."""
-        red_png = renderer.render_icon("heart", icon_color="#FF0000")
-        blue_png = renderer.render_icon("heart", icon_color="#0000FF")
+        # Use render_icon_bytes for byte comparison
+        red_png = renderer.render_icon_bytes("heart", icon_color="#FF0000")
+        blue_png = renderer.render_icon_bytes("heart", icon_color="#0000FF")
         assert red_png != blue_png
 
     def test_render_icon_color_short_hex(self, renderer: IconRenderer) -> None:
         """Test rendering with short hex color."""
-        png_data = renderer.render_icon("heart", icon_color="#F00")
-        assert len(png_data) > 0
+        img = renderer.render_icon("heart", icon_color="#F00")
+        assert img.size == (512, 512)
 
     def test_render_transparent_background(self, renderer: IconRenderer) -> None:
         """Test rendering with transparent background."""
-        png_data = renderer.render_icon("heart", background_color=None)
-        img = Image.open(io.BytesIO(png_data))
+        img = renderer.render_icon("heart", background_color=None)
         assert img.mode == "RGBA"
 
     def test_render_solid_background(self, renderer: IconRenderer) -> None:
         """Test rendering with solid background color."""
-        png_data = renderer.render_icon("heart", background_color="#FFFFFF")
-        assert len(png_data) > 0
+        img = renderer.render_icon("heart", background_color="#FFFFFF")
+        assert img.size == (512, 512)
 
     def test_render_invalid_icon(self, renderer: IconRenderer) -> None:
         """Test rendering invalid icon raises error."""
@@ -150,25 +148,24 @@ class TestRenderIconRGB:
 
     def test_render_rgb_red(self, renderer: IconRenderer) -> None:
         """Test rendering with RGB red color tuple."""
-        png_data = renderer.render_icon("heart", icon_color=(255, 0, 0))
-        assert len(png_data) > 0
+        img = renderer.render_icon("heart", icon_color=(255, 0, 0))
+        assert img.size == (512, 512)
 
     def test_render_rgb_with_alpha(self, renderer: IconRenderer) -> None:
         """Test rendering with RGBA color tuple."""
-        png_data = renderer.render_icon(
+        img = renderer.render_icon(
             "heart",
             icon_color=(255, 0, 0, 128),
         )
-        assert len(png_data) > 0
+        assert img.size == (512, 512)
 
     def test_render_rgb_transparent_bg(self, renderer: IconRenderer) -> None:
         """Test rendering RGB with transparent background."""
-        png_data = renderer.render_icon(
+        img = renderer.render_icon(
             "heart",
             icon_color=(0, 0, 0),
             background_color=None,
         )
-        img = Image.open(io.BytesIO(png_data))
         assert img.mode == "RGBA"
 
 
@@ -244,23 +241,19 @@ class TestSupersampling:
 
     def test_supersample_default(self, renderer: IconRenderer) -> None:
         """Test default supersampling (2x)."""
-        png_data = renderer.render_icon("heart", supersample=2)
-        assert len(png_data) > 0
+        img = renderer.render_icon("heart", supersample=2)
+        assert img.size == (512, 512)
 
     def test_supersample_4x(self, renderer: IconRenderer) -> None:
         """Test 4x supersampling."""
-        png_data = renderer.render_icon("heart", supersample=4)
-        assert len(png_data) > 0
+        img = renderer.render_icon("heart", supersample=4)
+        assert img.size == (512, 512)
 
     def test_supersample_quality_difference(self, renderer: IconRenderer) -> None:
         """Test that higher supersampling produces different results."""
-        ss1 = renderer.render_icon("heart", supersample=1, canvas_width=64)
-        ss4 = renderer.render_icon("heart", supersample=4, canvas_width=64)
-        # Results should be different due to antialiasing
-        # Note: They might be similar if the icon renders the same way
-        # but typically higher SS produces smoother edges
-        img1 = Image.open(io.BytesIO(ss1))
-        img4 = Image.open(io.BytesIO(ss4))
+        img1 = renderer.render_icon("heart", supersample=1, canvas_width=64)
+        img4 = renderer.render_icon("heart", supersample=4, canvas_width=64)
+        # Results should be the same size but may differ in quality
         assert img1.size == img4.size
 
 
@@ -312,20 +305,20 @@ class TestBrandIcons:
     def test_github_icon(self, renderer: IconRenderer) -> None:
         """Test rendering GitHub brand icon."""
         assert renderer.has_icon("github")
-        png_data = renderer.render_icon("github")
-        assert len(png_data) > 0
+        img = renderer.render_icon("github")
+        assert img.size == (512, 512)
 
     def test_twitter_icon(self, renderer: IconRenderer) -> None:
         """Test rendering Twitter brand icon."""
         assert renderer.has_icon("twitter")
-        png_data = renderer.render_icon("twitter")
-        assert len(png_data) > 0
+        img = renderer.render_icon("twitter")
+        assert img.size == (512, 512)
 
     def test_python_icon(self, renderer: IconRenderer) -> None:
         """Test rendering Python brand icon."""
         assert renderer.has_icon("python")
-        png_data = renderer.render_icon("python")
-        assert len(png_data) > 0
+        img = renderer.render_icon("python")
+        assert img.size == (512, 512)
 
 
 class TestEdgeCases:
@@ -333,33 +326,30 @@ class TestEdgeCases:
 
     def test_minimum_size(self, renderer: IconRenderer) -> None:
         """Test rendering at minimum size."""
-        png_data = renderer.render_icon("heart", canvas_width=1, canvas_height=1)
-        img = Image.open(io.BytesIO(png_data))
+        img = renderer.render_icon("heart", canvas_width=1, canvas_height=1)
         assert img.size == (1, 1)
 
     def test_large_size(self, renderer: IconRenderer) -> None:
         """Test rendering at large size."""
-        png_data = renderer.render_icon("heart", canvas_width=2048, canvas_height=2048)
-        img = Image.open(io.BytesIO(png_data))
+        img = renderer.render_icon("heart", canvas_width=2048, canvas_height=2048)
         assert img.size == (2048, 2048)
 
     def test_non_square(self, renderer: IconRenderer) -> None:
         """Test rendering non-square dimensions."""
-        png_data = renderer.render_icon("heart", canvas_width=100, canvas_height=200)
-        img = Image.open(io.BytesIO(png_data))
+        img = renderer.render_icon("heart", canvas_width=100, canvas_height=200)
         assert img.size == (100, 200)
 
     def test_letter_icons(self, renderer: IconRenderer) -> None:
         """Test rendering letter icons (a-z)."""
         assert renderer.has_icon("a")
-        png_data = renderer.render_icon("a")
-        assert len(png_data) > 0
+        img = renderer.render_icon("a")
+        assert img.size == (512, 512)
 
     def test_number_icons(self, renderer: IconRenderer) -> None:
         """Test rendering number icons (0-9)."""
         assert renderer.has_icon("0")
-        png_data = renderer.render_icon("0")
-        assert len(png_data) > 0
+        img = renderer.render_icon("0")
+        assert img.size == (512, 512)
 
 
 class TestIconAliases:
@@ -372,10 +362,10 @@ class TestIconAliases:
         assert renderer.has_icon("circle-xmark")
         assert renderer.has_icon("xmark-circle")
 
-        # All should render successfully
-        times_circle = renderer.render_icon("times-circle", canvas_width=64)
-        circle_xmark = renderer.render_icon("circle-xmark", canvas_width=64)
-        xmark_circle = renderer.render_icon("xmark-circle", canvas_width=64)
+        # All should render successfully (use render_icon_bytes for comparison)
+        times_circle = renderer.render_icon_bytes("times-circle", canvas_width=64)
+        circle_xmark = renderer.render_icon_bytes("circle-xmark", canvas_width=64)
+        xmark_circle = renderer.render_icon_bytes("xmark-circle", canvas_width=64)
 
         assert len(times_circle) > 0
         assert len(circle_xmark) > 0
@@ -414,13 +404,13 @@ class TestOutputFormats:
 
     def test_png_file_header(self, renderer: IconRenderer) -> None:
         """Test PNG file has correct magic bytes."""
-        png_data = renderer.render_icon("heart", output_format=OutputFormat.Png)
+        png_data = renderer.render_icon_bytes("heart", output_format=OutputFormat.Png)
         # PNG magic bytes
         assert png_data[:4] == b"\x89PNG"
 
     def test_webp_file_header(self, renderer: IconRenderer) -> None:
         """Test WebP file has correct magic bytes."""
-        webp_data = renderer.render_icon("heart", output_format=OutputFormat.WebP)
+        webp_data = renderer.render_icon_bytes("heart", output_format=OutputFormat.WebP)
         # WebP magic bytes (RIFF....WEBP)
         assert webp_data[:4] == b"RIFF"
         assert webp_data[8:12] == b"WEBP"
@@ -431,18 +421,20 @@ class TestRotation:
 
     def test_rotate_zero(self, renderer: IconRenderer) -> None:
         """Test that rotate=0 produces same result as no rotation."""
-        no_rotate = renderer.render_icon("arrow-right", canvas_width=256)
-        with_zero = renderer.render_icon("arrow-right", canvas_width=256, rotate=0)
+        # Use render_icon_bytes for byte comparison
+        no_rotate = renderer.render_icon_bytes("arrow-right", canvas_width=256)
+        with_zero = renderer.render_icon_bytes("arrow-right", canvas_width=256, rotate=0)
         assert no_rotate == with_zero
 
     def test_rotate_produces_different_result(self, renderer: IconRenderer) -> None:
         """Test that rotation produces a different image."""
-        no_rotate = renderer.render_icon(
+        # Use render_icon_bytes for byte comparison
+        no_rotate = renderer.render_icon_bytes(
             "arrow-right",
             canvas_width=256,
             icon_size=128,
         )
-        rotated = renderer.render_icon(
+        rotated = renderer.render_icon_bytes(
             "arrow-right",
             canvas_width=256,
             icon_size=128,
@@ -452,35 +444,30 @@ class TestRotation:
 
     def test_rotate_positive(self, renderer: IconRenderer) -> None:
         """Test positive rotation (clockwise)."""
-        png_data = renderer.render_icon("arrow-up", rotate=90)
-        assert len(png_data) > 0
-        img = Image.open(io.BytesIO(png_data))
-        assert img.size == (1024, 1024)
+        img = renderer.render_icon("arrow-up", rotate=90)
+        # Default canvas size is 512x512
+        assert img.size == (512, 512)
 
     def test_rotate_negative(self, renderer: IconRenderer) -> None:
         """Test negative rotation (counter-clockwise)."""
-        png_data = renderer.render_icon("arrow-up", rotate=-90)
-        assert len(png_data) > 0
-        img = Image.open(io.BytesIO(png_data))
-        assert img.size == (1024, 1024)
+        img = renderer.render_icon("arrow-up", rotate=-90)
+        assert img.size == (512, 512)
 
     def test_rotate_45_degrees(self, renderer: IconRenderer) -> None:
         """Test 45-degree rotation."""
-        png_data = renderer.render_icon(
+        img = renderer.render_icon(
             "heart",
             canvas_width=256,
             canvas_height=256,
             icon_size=128,
             rotate=45,
         )
-        assert len(png_data) > 0
-        img = Image.open(io.BytesIO(png_data))
         assert img.size == (256, 256)
 
     def test_rotate_180_degrees(self, renderer: IconRenderer) -> None:
         """Test 180-degree rotation (upside down)."""
-        png_data = renderer.render_icon("arrow-up", rotate=180)
-        assert len(png_data) > 0
+        img = renderer.render_icon("arrow-up", rotate=180)
+        assert img.size == (512, 512)
 
     def test_rotate_360_degrees(self, renderer: IconRenderer) -> None:
         """Test 360-degree rotation returns similar to original."""
@@ -489,63 +476,65 @@ class TestRotation:
         no_rotate = renderer.render_icon(
             "circle",
             canvas_width=256,
+            canvas_height=256,
             icon_size=100,
             rotate=0,
         )
         full_rotate = renderer.render_icon(
             "circle",
             canvas_width=256,
+            canvas_height=256,
             icon_size=100,
             rotate=360,
         )
         # Both should render successfully
-        assert len(no_rotate) > 0
-        assert len(full_rotate) > 0
+        assert no_rotate.size == (256, 256)
+        assert full_rotate.size == (256, 256)
 
     def test_rotate_with_transparent_background(self, renderer: IconRenderer) -> None:
         """Test rotation with transparent background."""
-        png_data = renderer.render_icon(
+        img = renderer.render_icon(
             "star",
             rotate=30,
             background_color=None,
         )
-        assert len(png_data) > 0
-        img = Image.open(io.BytesIO(png_data))
         assert img.mode == "RGBA"
 
     def test_rotate_with_offset(self, renderer: IconRenderer) -> None:
         """Test rotation combined with offset."""
-        png_data = renderer.render_icon(
+        img = renderer.render_icon(
             "heart",
             canvas_width=256,
+            canvas_height=256,
             icon_size=64,
             rotate=45,
             offset_x=20,
             offset_y=20,
         )
-        assert len(png_data) > 0
+        assert img.size == (256, 256)
 
     def test_rotate_with_anchoring(self, renderer: IconRenderer) -> None:
         """Test rotation combined with anchoring."""
-        png_data = renderer.render_icon(
+        img = renderer.render_icon(
             "check",
             canvas_width=256,
+            canvas_height=256,
             icon_size=64,
             rotate=45,
             horizontal_anchor="left",
             vertical_anchor="top",
         )
-        assert len(png_data) > 0
+        assert img.size == (256, 256)
 
     def test_rotate_float_precision(self, renderer: IconRenderer) -> None:
         """Test rotation with float values."""
-        png_data = renderer.render_icon("star", rotate=22.5)
-        assert len(png_data) > 0
+        img = renderer.render_icon("star", rotate=22.5)
+        assert img.size == (512, 512)
 
     def test_rotate_large_angle(self, renderer: IconRenderer) -> None:
         """Test rotation with angle > 360 degrees."""
-        png_data = renderer.render_icon("star", rotate=450)  # Same as 90 degrees
-        assert len(png_data) > 0
+        img = renderer.render_icon("star", rotate=450)  # Same as 90 degrees
+        assert img.size == (512, 512)
 
 
 class TestFontStyles:
