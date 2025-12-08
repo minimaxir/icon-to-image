@@ -4,7 +4,7 @@ build-backend = "maturin"
 
 [project]
 name = "icon-to-image"
-version = "0.1.5"
+version = "0.1.6"
 description = "Fast and high quality Font Awesome icon to image renderer"
 authors = [{ name = "Max Woolf", email = "max@minimaxir.com" }]
 readme = "README.md"

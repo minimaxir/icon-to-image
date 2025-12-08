@@ -53,7 +53,7 @@ Examples:
   icon-to-image heart output.png
 
   # Render with custom color and size
-  icon-to-image star output.png --color "#FFD700" --size 512
+  icon-to-image star output.png --color "#FFD700" --size 256
 
   # Render with transparent background
   icon-to-image github logo.png --color "#333333" --background transparent
@@ -92,8 +92,8 @@ Examples:
     parser.add_argument(
         "-s", "--size",
         type=int,
-        default=1024,
-        help="Canvas size in pixels (default: 1024)",
+        default=512,
+        help="Canvas size in pixels (default: 512)",
     )
     parser.add_argument(
         "--icon-size",

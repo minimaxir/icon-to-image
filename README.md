@@ -37,7 +37,7 @@ Or, add to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-icon-to-image = "0.1.5"
+icon-to-image = "0.1.6"
 ```
 
 ## Command-Line Interface
@@ -49,11 +49,8 @@ Both the Rust binary and Python package provide a CLI for rendering icons.
 The list of included icons can be found on [Font Awesome's Icon Grid](https://fontawesome.com/search?ic=free-collection) and filtering to "Free" icons. The icon names do not use the `fa` prefix.
 
 ```bash
-# (Python) View CLI documentation
+# View CLI documentation
 icon-to-image --help
-
-# (Rust) View CLI documentation
-cargo run -- --help
 
 # Render a heart icon to PNG
 icon-to-image heart heart.png
@@ -83,7 +80,7 @@ icon-to-image search arrow
 
 ## Rust Usage
 
-See the documentation on [docs.rs](https://docs.rs/icon-to-image/0.1.5/icon_to_image/).
+See the documentation on [docs.rs](https://docs.rs/icon-to-image/0.1.6/icon_to_image/).
 
 ## Python Usage
 
