@@ -83,9 +83,11 @@ icon-to-image search arrow
 
 ## Rust Usage
 
-See the documentation on [docs.rs](https://docs.rs/icon-to-image/0.1.0/icon_to_image/).
+See the documentation on [docs.rs](https://docs.rs/icon-to-image/0.1.4/icon_to_image/).
 
 ## Python Usage
+
+See also the [demo Jupyter Notebook](https://github.com/minimaxir/icon-to-image/tree/main) for more interactive examples.
 
 ### Basic Rendering
 
