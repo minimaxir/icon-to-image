@@ -68,9 +68,6 @@ icon-to-image github logo.png --color "#333333" --background transparent
 # Output as WebP
 icon-to-image rocket rocket.webp --color "#FF6B35"
 
-# Render with rotation (45 degrees clockwise)
-icon-to-image arrow-right rotated.png --rotate 45
-
 # Search for icons matching a pattern
 icon-to-image search arrow
 ```
