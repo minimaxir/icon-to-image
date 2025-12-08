@@ -1,6 +1,6 @@
 [package]
 name = "icon-to-image"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 description = "Fast icon font to image renderer with Python bindings"
 license = "MIT"
@@ -23,7 +23,10 @@ python = ["pyo3/extension-module"]
 ab_glyph = "0.2"
 
 # Image processing
-image = { version = "0.25", default-features = false, features = ["png", "webp"] }
+image = { version = "0.25", default-features = false, features = [
+    "png",
+    "webp",
+] }
 
 # Python bindings
 pyo3 = { version = "0.22", optional = true }

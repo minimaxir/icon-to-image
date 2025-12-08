@@ -4,7 +4,7 @@ build-backend = "maturin"
 
 [project]
 name = "icon-to-image"
-version = "0.1.0"
+version = "0.1.1"
 description = "Fast Font Awesome icon to image renderer with Python bindings"
 readme = "README.md"
 license = { text = "MIT" }
