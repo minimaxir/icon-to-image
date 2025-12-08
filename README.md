@@ -80,6 +80,10 @@ icon-to-image list
 icon-to-image search arrow
 ```
 
+## Rust Usage
+
+See the documentation on [docs.rs](https://docs.rs/icon-to-image/0.1.0/icon_to_image/).
+
 ## Python Usage
 
 ### Basic Rendering

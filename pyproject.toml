@@ -32,7 +32,7 @@ dev = ["pytest>=7.0", "pillow>=9.0"]
 
 [tool.maturin]
 features = ["python"]
-python-source = "python"
+python-source = "python/icon_to_image"
 module-name = "icon_to_image"
 strip = true
 
