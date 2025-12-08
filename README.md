@@ -37,7 +37,7 @@ Or, add to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-icon-to-image = "0.1.2"
+icon-to-image = "0.1.3"
 ```
 
 ## Command-Line Interface
@@ -69,9 +69,6 @@ icon-to-image rocket rocket.webp --color "#FF6B35"
 
 # Render with rotation (45 degrees clockwise)
 icon-to-image arrow-right rotated.png --rotate 45
-
-# Render with counter-clockwise rotation
-icon-to-image arrow-up arrow.png --rotate -90
 ```
 
 ### List and Search Icons
