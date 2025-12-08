@@ -5,6 +5,7 @@
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::PyBytes;
+use pyo3::Borrowed;
 
 use crate::color::Color;
 use crate::css_parser::FontStyle as RustFontStyle;
@@ -150,8 +151,10 @@ impl Default for FlexHAnchor {
     }
 }
 
-impl<'py> FromPyObject<'py> for FlexHAnchor {
-    fn extract_bound(ob: &Bound<'py, PyAny>) -> PyResult<Self> {
+impl<'a, 'py> FromPyObject<'a, 'py> for FlexHAnchor {
+    type Error = PyErr;
+
+    fn extract(ob: Borrowed<'a, 'py, PyAny>) -> PyResult<Self> {
         // Try to extract as HorizontalAnchor enum first
         if let Ok(anchor) = ob.extract::<HorizontalAnchor>() {
             return Ok(Self(anchor.into()));
@@ -204,8 +207,10 @@ impl Default for FlexVAnchor {
     }
 }
 
-impl<'py> FromPyObject<'py> for FlexVAnchor {
-    fn extract_bound(ob: &Bound<'py, PyAny>) -> PyResult<Self> {
+impl<'a, 'py> FromPyObject<'a, 'py> for FlexVAnchor {
+    type Error = PyErr;
+
+    fn extract(ob: Borrowed<'a, 'py, PyAny>) -> PyResult<Self> {
         // Try to extract as VerticalAnchor enum first
         if let Ok(anchor) = ob.extract::<VerticalAnchor>() {
             return Ok(Self(anchor.into()));
@@ -255,17 +260,13 @@ impl From<FontStyle> for RustFontStyle {
 /// Flexible optional font style that accepts None, enum, or string.
 /// Strings accepted: "solid", "regular", "brands" (case-insensitive)
 /// None means use the default style for the icon (solid for most icons, brands for brand icons).
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Default)]
 struct FlexOptionalFontStyle(Option<RustFontStyle>);
 
-impl Default for FlexOptionalFontStyle {
-    fn default() -> Self {
-        Self(None)
-    }
-}
+impl<'a, 'py> FromPyObject<'a, 'py> for FlexOptionalFontStyle {
+    type Error = PyErr;
 
-impl<'py> FromPyObject<'py> for FlexOptionalFontStyle {
-    fn extract_bound(ob: &Bound<'py, PyAny>) -> PyResult<Self> {
+    fn extract(ob: Borrowed<'a, 'py, PyAny>) -> PyResult<Self> {
         // Check for None first
         if ob.is_none() {
             return Ok(Self(None));
@@ -320,8 +321,10 @@ impl Default for FlexOutputFormat {
     }
 }
 
-impl<'py> FromPyObject<'py> for FlexOutputFormat {
-    fn extract_bound(ob: &Bound<'py, PyAny>) -> PyResult<Self> {
+impl<'a, 'py> FromPyObject<'a, 'py> for FlexOutputFormat {
+    type Error = PyErr;
+
+    fn extract(ob: Borrowed<'a, 'py, PyAny>) -> PyResult<Self> {
         // Try to extract as OutputFormat enum first
         if let Ok(fmt) = ob.extract::<OutputFormat>() {
             return Ok(Self(fmt.into()));
@@ -350,9 +353,11 @@ impl<'py> FromPyObject<'py> for FlexOutputFormat {
 #[derive(Clone, Copy)]
 struct FlexColor(Color);
 
-impl<'py> FromPyObject<'py> for FlexColor {
-    fn extract_bound(ob: &Bound<'py, PyAny>) -> PyResult<Self> {
-        parse_color_from_pyobject(ob).map(Self)
+impl<'a, 'py> FromPyObject<'a, 'py> for FlexColor {
+    type Error = PyErr;
+
+    fn extract(ob: Borrowed<'a, 'py, PyAny>) -> PyResult<Self> {
+        parse_color_from_pyobject(&ob).map(Self)
     }
 }
 
@@ -360,12 +365,14 @@ impl<'py> FromPyObject<'py> for FlexColor {
 #[derive(Clone, Copy)]
 struct FlexOptionalColor(Option<Color>);
 
-impl<'py> FromPyObject<'py> for FlexOptionalColor {
-    fn extract_bound(ob: &Bound<'py, PyAny>) -> PyResult<Self> {
+impl<'a, 'py> FromPyObject<'a, 'py> for FlexOptionalColor {
+    type Error = PyErr;
+
+    fn extract(ob: Borrowed<'a, 'py, PyAny>) -> PyResult<Self> {
         if ob.is_none() {
             return Ok(Self(None));
         }
-        parse_color_from_pyobject(ob).map(|c| Self(Some(c)))
+        parse_color_from_pyobject(&ob).map(|c| Self(Some(c)))
     }
 }
 
@@ -512,7 +519,7 @@ impl IconRenderer {
         offset_y: i32,
         rotate: f64,
         style: FlexOptionalFontStyle,
-    ) -> PyResult<PyObject> {
+    ) -> PyResult<Py<PyAny>> {
         let params = RenderParams {
             canvas_width,
             canvas_height,
@@ -531,7 +538,7 @@ impl IconRenderer {
             render_with_optional_style(&self.inner, name, style.0, &config)?;
 
         // Import PIL.Image and create an image from raw RGBA bytes
-        let pil_image = py.import_bound("PIL.Image").map_err(|_| {
+        let pil_image = py.import("PIL.Image").map_err(|_| {
             pyo3::exceptions::PyImportError::new_err(
                 "Pillow is required for render_icon(). Install it with: pip install Pillow\n\
                  Alternatively, use render_icon_bytes() to get raw PNG/WebP bytes without Pillow.",
@@ -540,11 +547,11 @@ impl IconRenderer {
 
         // Create PIL Image from raw RGBA bytes using frombytes()
         // frombytes(mode, size, data) creates an image from raw pixel data
-        let bytes = PyBytes::new_bound(py, &pixels);
+        let bytes = PyBytes::new(py, &pixels);
         let size = (width, height);
         let img = pil_image.call_method1("frombytes", ("RGBA", size, bytes))?;
 
-        Ok(img.into())
+        Ok(img.unbind())
     }
 
     /// Render an icon to encoded image bytes (PNG or WebP).
@@ -633,7 +640,7 @@ impl IconRenderer {
             render_with_optional_style(&self.inner, name, style.0, &config)?;
         let encoded = encode(&pixels, width, height, output_format.0).map_err(to_py_err)?;
 
-        Ok(PyBytes::new_bound(py, &encoded))
+        Ok(PyBytes::new(py, &encoded))
     }
 
     /// Save an icon directly to a file.

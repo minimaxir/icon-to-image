@@ -1,6 +1,6 @@
 [package]
 name = "icon-to-image"
-version = "0.1.2"
+version = "0.1.4"
 edition = "2021"
 description = "Fast icon font to image renderer with Python bindings"
 license = "MIT"
@@ -29,7 +29,7 @@ image = { version = "0.25", default-features = false, features = [
 ] }
 
 # Python bindings
-pyo3 = { version = "0.27", optional = true }
+pyo3 = { version = "0.27.2", optional = true }
 
 # Error handling
 thiserror = "2"

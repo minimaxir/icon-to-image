@@ -11,6 +11,9 @@ __pycache__/
 dist/
 build/
 uv.lock
+AGENTS.md
+CLAUDE.md
+/output
 
 # Added by cargo
 /target

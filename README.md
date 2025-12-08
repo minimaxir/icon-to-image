@@ -37,7 +37,7 @@ Or, add to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-icon-to-image = "0.1.3"
+icon-to-image = "0.1.4"
 ```
 
 ## Command-Line Interface
