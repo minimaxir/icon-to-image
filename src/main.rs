@@ -21,9 +21,9 @@ struct Cli {
     #[arg(value_name = "ICON")]
     icon: Option<String>,
 
-    /// Output file path (e.g., 'icon.png' or 'icon.webp')
-    #[arg(value_name = "OUTPUT")]
-    output: Option<PathBuf>,
+    /// Output file path (e.g., 'icon.png' or 'icon.webp'). Defaults to 'output.png'.
+    #[arg(value_name = "OUTPUT", default_value = "output.png")]
+    output: PathBuf,
 
     /// Icon color as hex (e.g., '#FF0000' or 'FF0000')
     #[arg(short = 'c', long, default_value = "#000000")]
@@ -46,12 +46,8 @@ struct Cli {
     supersample: u32,
 
     /// Rotation angle in degrees (positive = clockwise, negative = counter-clockwise)
-    #[arg(short = 'r', long, default_value = "0")]
+    #[arg(short = 'r', long, visible_alias = "rotation", default_value = "0")]
     rotate: f64,
-
-    /// Path to custom Font Awesome assets directory
-    #[arg(long, value_name = "DIR")]
-    assets: Option<PathBuf>,
 }
 
 #[derive(Subcommand)]
@@ -68,22 +64,13 @@ enum Commands {
 fn main() -> ExitCode {
     let cli = Cli::parse();
 
-    // Initialize renderer
-    let renderer = match &cli.assets {
-        Some(path) => match IconRenderer::from_path(path) {
-            Ok(r) => r,
-            Err(e) => {
-                eprintln!("Error loading assets from {:?}: {}", path, e);
-                return ExitCode::FAILURE;
-            }
-        },
-        None => match IconRenderer::new() {
-            Ok(r) => r,
-            Err(e) => {
-                eprintln!("Error initializing renderer: {}", e);
-                return ExitCode::FAILURE;
-            }
-        },
+    // Initialize renderer using embedded assets
+    let renderer = match IconRenderer::new() {
+        Ok(r) => r,
+        Err(e) => {
+            eprintln!("Error initializing renderer: {}", e);
+            return ExitCode::FAILURE;
+        }
     };
 
     // Handle subcommands
@@ -141,14 +128,7 @@ fn main() -> ExitCode {
         }
     };
 
-    let output = match &cli.output {
-        Some(o) => o,
-        None => {
-            eprintln!("Error: OUTPUT argument is required for rendering");
-            eprintln!("Usage: icon-to-image <ICON> <OUTPUT> [OPTIONS]");
-            return ExitCode::FAILURE;
-        }
-    };
+    let output = &cli.output;
 
     // Check if icon exists
     if !renderer.has_icon(icon) {

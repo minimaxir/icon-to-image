@@ -378,19 +378,11 @@ impl<'a, 'py> FromPyObject<'a, 'py> for FlexOptionalColor {
 
 /// Icon renderer that loads Font Awesome fonts and renders icons to images.
 ///
-/// By default, uses embedded Font Awesome assets (no external files needed).
-/// Optionally, you can provide a custom assets directory path.
-///
-/// Args:
-///     assets_dir: Optional path to directory containing fa-solid.otf, fa-regular.otf,
-///                 fa-brands.otf, and fontawesome.css. If not provided, uses embedded assets.
+/// Uses embedded Font Awesome assets (no external files needed).
 ///
 /// Example:
 ///     >>> from icon_to_image import IconRenderer
-///     >>> # Use embedded assets (recommended)
 ///     >>> renderer = IconRenderer()
-///     >>> # Or use custom assets from a directory
-///     >>> renderer = IconRenderer("./custom_assets")
 ///     >>>
 ///     >>> # render_icon() returns a PIL.Image (requires Pillow)
 ///     >>> img = renderer.render_icon("heart", icon_color="#FF0000")
@@ -407,18 +399,10 @@ pub struct IconRenderer {
 
 #[pymethods]
 impl IconRenderer {
-    /// Create a new IconRenderer.
-    ///
-    /// Args:
-    ///     assets_dir: Optional path to the assets directory containing font files and CSS.
-    ///                 If not provided, uses embedded Font Awesome assets.
+    /// Create a new IconRenderer using embedded Font Awesome assets.
     #[new]
-    #[pyo3(signature = (assets_dir = None))]
-    fn new(assets_dir: Option<&str>) -> PyResult<Self> {
-        let inner = match assets_dir {
-            Some(path) => RustRenderer::from_path(path).map_err(to_py_err)?,
-            None => RustRenderer::new().map_err(to_py_err)?,
-        };
+    fn new() -> PyResult<Self> {
+        let inner = RustRenderer::new().map_err(to_py_err)?;
         Ok(Self { inner })
     }
 
