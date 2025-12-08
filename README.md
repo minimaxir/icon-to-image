@@ -70,13 +70,6 @@ icon-to-image rocket rocket.webp --color "#FF6B35"
 
 # Render with rotation (45 degrees clockwise)
 icon-to-image arrow-right rotated.png --rotate 45
-```
-
-### List and Search Icons
-
-```bash
-# List all available icons
-icon-to-image list
 
 # Search for icons matching a pattern
 icon-to-image search arrow
