@@ -37,7 +37,7 @@ Or, add to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-icon-to-image = "0.1.4"
+icon-to-image = "0.1.5"
 ```
 
 ## Command-Line Interface
@@ -83,7 +83,7 @@ icon-to-image search arrow
 
 ## Rust Usage
 
-See the documentation on [docs.rs](https://docs.rs/icon-to-image/0.1.4/icon_to_image/).
+See the documentation on [docs.rs](https://docs.rs/icon-to-image/0.1.5/icon_to_image/).
 
 ## Python Usage
 
