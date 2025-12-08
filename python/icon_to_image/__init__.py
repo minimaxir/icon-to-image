@@ -35,7 +35,7 @@ __all__ = [
     "main",
 ]
 
-__version__ = "0.1.0"
+__version__ = "0.1.6"
 
 
 def main() -> None:
@@ -80,17 +80,20 @@ Examples:
 
     # Optional arguments
     parser.add_argument(
-        "-c", "--color",
+        "-c",
+        "--color",
         default="#000000",
         help="Icon color as hex (default: #000000)",
     )
     parser.add_argument(
-        "-b", "--background",
+        "-b",
+        "--background",
         default="#FFFFFF",
         help="Background color as hex, or 'transparent' (default: #FFFFFF)",
     )
     parser.add_argument(
-        "-s", "--size",
+        "-s",
+        "--size",
         type=int,
         default=512,
         help="Canvas size in pixels (default: 512)",
@@ -109,7 +112,8 @@ Examples:
         help="Supersampling factor for antialiasing (default: 2)",
     )
     parser.add_argument(
-        "-l", "--list",
+        "-l",
+        "--list",
         action="store_true",
         help="List all available icon names",
     )
@@ -168,9 +172,7 @@ Examples:
         print(f"Error: Icon '{args.icon}' not found", file=sys.stderr)
         # Suggest similar icons
         icons = renderer.list_icons()
-        suggestions = [
-            name for name in icons if args.icon.lower() in name.lower()
-        ][:5]
+        suggestions = [name for name in icons if args.icon.lower() in name.lower()][:5]
         if suggestions:
             print(f"Did you mean: {', '.join(suggestions)}?", file=sys.stderr)
         sys.exit(1)

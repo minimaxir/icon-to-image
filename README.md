@@ -84,7 +84,7 @@ See the documentation on [docs.rs](https://docs.rs/icon-to-image/0.1.6/icon_to_i
 
 ## Python Usage
 
-See also the [demo Jupyter Notebook](https://github.com/minimaxir/icon-to-image/tree/main) for more interactive examples.
+See also the [demo Jupyter Notebook](https://github.com/minimaxir/icon-to-image/blob/main/demo.ipynb) for more interactive examples.
 
 ### Basic Rendering
 
