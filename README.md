@@ -300,6 +300,7 @@ Applies to both `render_icon()` and `render_icon_bytes()`:
 
 ## Notes
 
+- This project is a recreation of my four year old Python project, [icon-image](https://github.com/minimaxir/icon-image/tree/master). However, there were several issues with that project: the generations are slow, the generated icons were annoyingly aliased, and the `Pillow` code was a mess and prone to breaking. Therefore, I looked to Rust with Python bindings as it addressed all of the above issues: Claude 4.5 Opus handled them all easily. Normally this type of bespoke project would be kept as private personal project as I have a specific need for this workflow for a _certain_ upcoming project, but Claude's generated code was good enough such that it wasn't a huge lift to polish it for public release.
 - Normally I would use `fontdue` for rendering the glyphs as it's more performant, however `fontdue` does not have the ability to render curves which is very important for most icons.
 - This library technically supports using provided Font Awesome files (e.g. the Pro variants) but I do not have access to Pro for testing.
 
