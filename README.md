@@ -23,6 +23,10 @@ _**Disclosure:** This library was mostly coded with the assistance of Claude 4.5
 pip install icon-to-image
 ```
 
+```bash
+uv pip install icon-to-image
+```
+
 ### Rust
 
 ```bash
@@ -33,7 +37,7 @@ Or, add to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-icon-to-image = "0.1"
+icon-to-image = "0.1.2"
 ```
 
 ## Command-Line Interface
