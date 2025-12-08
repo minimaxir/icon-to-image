@@ -193,10 +193,10 @@ Some Font Awesome icons have different styles. You can explicitly specify which 
 
 ```python
 # Solid style (filled) - default for most icons
-solid_heart = renderer.render_icon("heart", style="solid")
+solid_heart = renderer.render_icon("bell", style="solid")
 
 # Regular style (outlined)
-regular_heart = renderer.render_icon("heart", style="regular")
+regular_heart = renderer.render_icon("bell", style="regular")
 ```
 
 ![](docs/combined_icons_styles.webp)
