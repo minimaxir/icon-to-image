@@ -100,7 +100,7 @@ jobs:
 
   python_publish:
     name: Publish Python
-    needs: [python_wheel, python_sdist, rust_binaries]
+    needs: [python_wheel, python_sdist]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4
@@ -112,16 +112,26 @@ jobs:
         with:
           name: sdist
           path: dist
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          password: ${{ secrets.PYPI_API_TOKEN }}
+      - name: Upload Python artifacts to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+
+  rust_publish:
+    name: Publish Rust Binaries
+    needs: [rust_binaries]
+    runs-on: ubuntu-latest
+    steps:
       - uses: actions/download-artifact@v4
         with:
           pattern: rust-binary-*
           path: dist
           merge-multiple: true
-      - name: Publish to PyPI
-        uses: pypa/gh-action-pypi-publish@release/v1
-        with:
-          password: ${{ secrets.PYPI_API_TOKEN }}
-      - name: Upload to GitHub Release
+      - name: Upload Rust binaries to GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           files: dist/*
