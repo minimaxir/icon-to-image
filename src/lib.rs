@@ -50,7 +50,10 @@ mod renderer;
 // Re-export public API
 pub use color::Color;
 pub use css_parser::{CssParser, FontStyle, IconMapping};
-pub use encoder::{encode, encode_png, encode_webp, save_to_file, ImageFormat};
+pub use encoder::{
+    encode, encode_png, encode_png_with_compression, encode_webp, save_to_file, ImageFormat,
+    PngCompression,
+};
 pub use error::{IconFontError, Result};
 pub use renderer::{HorizontalAnchor, IconRenderer, RenderConfig, VerticalAnchor};
 

@@ -1,10 +1,9 @@
 //! Python bindings for icon_to_image using PyO3.
-//!
-//! This module provides a Python-friendly API for the icon rendering functionality.
 
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
-use pyo3::types::PyBytes;
+use pyo3::sync::PyOnceLock;
+use pyo3::types::{PyByteArray, PyBytes, PyModule};
 use pyo3::Borrowed;
 
 use crate::color::Color;
@@ -15,38 +14,32 @@ use crate::renderer::{
     VerticalAnchor as RustVAnchor,
 };
 
-/// Convert a Rust error to a Python exception.
 fn to_py_err(e: crate::IconFontError) -> PyErr {
     PyValueError::new_err(e.to_string())
 }
 
-/// Calculate safe icon size with sanity check.
-///
-/// If icon_size is None, defaults to 95% of the smaller canvas dimension.
-/// If icon_size exceeds either canvas dimension, clamps to 95% of the smaller dimension.
+static PIL_IMAGE_MODULE: PyOnceLock<Py<PyModule>> = PyOnceLock::new();
+
+fn get_pil_image_module<'py>(py: Python<'py>) -> PyResult<&'py Bound<'py, PyModule>> {
+    PIL_IMAGE_MODULE
+        .get_or_try_init(py, || py.import("PIL.Image").map(|module| module.unbind()))
+        .map(|module| module.bind(py))
+}
+
+/// Calculate safe icon size (defaults to 95% of smaller canvas dimension).
 fn calculate_safe_icon_size(icon_size: Option<u32>, canvas_width: u32, canvas_height: u32) -> u32 {
     let smaller_dim = canvas_width.min(canvas_height);
-    // 95% of smaller dimension, ensuring at least 1px
     let max_safe_size = ((smaller_dim as f64) * 0.95) as u32;
     let max_safe_size = max_safe_size.max(1);
 
     match icon_size {
-        Some(size) if size > smaller_dim => {
-            // Icon size exceeds canvas, clamp to 95% of smaller dimension
-            max_safe_size
-        }
+        Some(size) if size > smaller_dim => max_safe_size,
         Some(size) => size,
-        None => {
-            // Default: 95% of smaller dimension (for 512x512, this is ~486)
-            max_safe_size
-        }
+        None => max_safe_size,
     }
 }
 
-/// Common parameters for building a RenderConfig.
-///
-/// This struct consolidates the shared parameters used across render_icon,
-/// render_icon_bytes, and save_icon methods to avoid code duplication.
+/// Shared render parameters (DRY consolidation).
 struct RenderParams {
     canvas_width: u32,
     canvas_height: u32,
@@ -62,15 +55,15 @@ struct RenderParams {
 }
 
 impl RenderParams {
-    /// Build a RustConfig from these parameters.
     fn to_config(&self) -> RustConfig {
-        let effective_icon_size =
-            calculate_safe_icon_size(self.icon_size, self.canvas_width, self.canvas_height);
-
         RustConfig {
             canvas_width: self.canvas_width,
             canvas_height: self.canvas_height,
-            icon_size: effective_icon_size,
+            icon_size: calculate_safe_icon_size(
+                self.icon_size,
+                self.canvas_width,
+                self.canvas_height,
+            ),
             supersample_factor: self.supersample.max(1),
             icon_color: self.icon_color,
             background_color: self.background_color,
@@ -83,9 +76,6 @@ impl RenderParams {
     }
 }
 
-/// Render an icon with optional style override.
-///
-/// Consolidates the render dispatch logic used across multiple Python methods.
 fn render_with_optional_style(
     renderer: &RustRenderer,
     name: &str,
@@ -100,25 +90,19 @@ fn render_with_optional_style(
     }
 }
 
-/// Parse a color from a Python object (hex string or RGB/RGBA tuple).
-///
-/// Returns the parsed Color or a PyErr if the format is invalid.
 fn parse_color_from_pyobject(ob: &Bound<'_, PyAny>) -> PyResult<Color> {
-    // Try to extract as string (hex color)
-    if let Ok(s) = ob.extract::<String>() {
-        return Color::from_hex(&s).map_err(to_py_err);
+    match ob.extract::<&str>() {
+        Ok(s) => Color::from_hex(s).map_err(to_py_err),
+        Err(_) => match ob.extract::<(u8, u8, u8)>() {
+            Ok((r, g, b)) => Ok(Color::rgb(r, g, b)),
+            Err(_) => match ob.extract::<(u8, u8, u8, u8)>() {
+                Ok((r, g, b, a)) => Ok(Color::rgba(r, g, b, a)),
+                Err(_) => Err(PyValueError::new_err(
+                    "color must be a hex string (e.g., '#FF0000') or RGB/RGBA tuple",
+                )),
+            },
+        },
     }
-    // Try to extract as 3-tuple (RGB)
-    if let Ok((r, g, b)) = ob.extract::<(u8, u8, u8)>() {
-        return Ok(Color::rgb(r, g, b));
-    }
-    // Try to extract as 4-tuple (RGBA)
-    if let Ok((r, g, b, a)) = ob.extract::<(u8, u8, u8, u8)>() {
-        return Ok(Color::rgba(r, g, b, a));
-    }
-    Err(PyValueError::new_err(
-        "color must be a hex string (e.g., '#FF0000') or RGB/RGBA tuple (e.g., (255, 0, 0) or (255, 0, 0, 128))",
-    ))
 }
 
 /// Python-exposed horizontal anchor enum.
@@ -155,25 +139,23 @@ impl<'a, 'py> FromPyObject<'a, 'py> for FlexHAnchor {
     type Error = PyErr;
 
     fn extract(ob: Borrowed<'a, 'py, PyAny>) -> PyResult<Self> {
-        // Try to extract as HorizontalAnchor enum first
-        if let Ok(anchor) = ob.extract::<HorizontalAnchor>() {
-            return Ok(Self(anchor.into()));
+        match ob.extract::<HorizontalAnchor>() {
+            Ok(anchor) => Ok(Self(anchor.into())),
+            Err(_) => match ob.extract::<&str>() {
+                Ok(s) => match () {
+                    _ if s.eq_ignore_ascii_case("left") => Ok(Self(RustHAnchor::Left)),
+                    _ if s.eq_ignore_ascii_case("center") => Ok(Self(RustHAnchor::Center)),
+                    _ if s.eq_ignore_ascii_case("right") => Ok(Self(RustHAnchor::Right)),
+                    _ => Err(PyValueError::new_err(format!(
+                        "Invalid horizontal anchor: '{}'. Expected 'left', 'center', or 'right'",
+                        s
+                    ))),
+                },
+                Err(_) => Err(PyValueError::new_err(
+                    "horizontal_anchor must be a HorizontalAnchor enum or string ('left', 'center', 'right')",
+                )),
+            },
         }
-        // Try to extract as string
-        if let Ok(s) = ob.extract::<String>() {
-            return match s.to_lowercase().as_str() {
-                "left" => Ok(Self(RustHAnchor::Left)),
-                "center" => Ok(Self(RustHAnchor::Center)),
-                "right" => Ok(Self(RustHAnchor::Right)),
-                _ => Err(PyValueError::new_err(format!(
-                    "Invalid horizontal anchor: '{}'. Expected 'left', 'center', or 'right'",
-                    s
-                ))),
-            };
-        }
-        Err(PyValueError::new_err(
-            "horizontal_anchor must be a HorizontalAnchor enum or string ('left', 'center', 'right')",
-        ))
     }
 }
 
@@ -211,25 +193,23 @@ impl<'a, 'py> FromPyObject<'a, 'py> for FlexVAnchor {
     type Error = PyErr;
 
     fn extract(ob: Borrowed<'a, 'py, PyAny>) -> PyResult<Self> {
-        // Try to extract as VerticalAnchor enum first
-        if let Ok(anchor) = ob.extract::<VerticalAnchor>() {
-            return Ok(Self(anchor.into()));
+        match ob.extract::<VerticalAnchor>() {
+            Ok(anchor) => Ok(Self(anchor.into())),
+            Err(_) => match ob.extract::<&str>() {
+                Ok(s) => match () {
+                    _ if s.eq_ignore_ascii_case("top") => Ok(Self(RustVAnchor::Top)),
+                    _ if s.eq_ignore_ascii_case("center") => Ok(Self(RustVAnchor::Center)),
+                    _ if s.eq_ignore_ascii_case("bottom") => Ok(Self(RustVAnchor::Bottom)),
+                    _ => Err(PyValueError::new_err(format!(
+                        "Invalid vertical anchor: '{}'. Expected 'top', 'center', or 'bottom'",
+                        s
+                    ))),
+                },
+                Err(_) => Err(PyValueError::new_err(
+                    "vertical_anchor must be a VerticalAnchor enum or string ('top', 'center', 'bottom')",
+                )),
+            },
         }
-        // Try to extract as string
-        if let Ok(s) = ob.extract::<String>() {
-            return match s.to_lowercase().as_str() {
-                "top" => Ok(Self(RustVAnchor::Top)),
-                "center" => Ok(Self(RustVAnchor::Center)),
-                "bottom" => Ok(Self(RustVAnchor::Bottom)),
-                _ => Err(PyValueError::new_err(format!(
-                    "Invalid vertical anchor: '{}'. Expected 'top', 'center', or 'bottom'",
-                    s
-                ))),
-            };
-        }
-        Err(PyValueError::new_err(
-            "vertical_anchor must be a VerticalAnchor enum or string ('top', 'center', 'bottom')",
-        ))
     }
 }
 
@@ -267,29 +247,32 @@ impl<'a, 'py> FromPyObject<'a, 'py> for FlexOptionalFontStyle {
     type Error = PyErr;
 
     fn extract(ob: Borrowed<'a, 'py, PyAny>) -> PyResult<Self> {
-        // Check for None first
-        if ob.is_none() {
-            return Ok(Self(None));
+        match ob.is_none() {
+            true => Ok(Self(None)),
+            false => match ob.extract::<FontStyle>() {
+                Ok(style) => Ok(Self(Some(style.into()))),
+                Err(_) => match ob.extract::<&str>() {
+                    Ok(s) => match () {
+                        _ if s.eq_ignore_ascii_case("solid") => {
+                            Ok(Self(Some(RustFontStyle::Solid)))
+                        }
+                        _ if s.eq_ignore_ascii_case("regular") => {
+                            Ok(Self(Some(RustFontStyle::Regular)))
+                        }
+                        _ if s.eq_ignore_ascii_case("brands") => {
+                            Ok(Self(Some(RustFontStyle::Brands)))
+                        }
+                        _ => Err(PyValueError::new_err(format!(
+                            "Invalid font style: '{}'. Expected 'solid', 'regular', or 'brands'",
+                            s
+                        ))),
+                    },
+                    Err(_) => Err(PyValueError::new_err(
+                        "style must be None, a FontStyle enum, or string ('solid', 'regular', 'brands')",
+                    )),
+                },
+            },
         }
-        // Try to extract as FontStyle enum
-        if let Ok(style) = ob.extract::<FontStyle>() {
-            return Ok(Self(Some(style.into())));
-        }
-        // Try to extract as string
-        if let Ok(s) = ob.extract::<String>() {
-            return match s.to_lowercase().as_str() {
-                "solid" => Ok(Self(Some(RustFontStyle::Solid))),
-                "regular" => Ok(Self(Some(RustFontStyle::Regular))),
-                "brands" => Ok(Self(Some(RustFontStyle::Brands))),
-                _ => Err(PyValueError::new_err(format!(
-                    "Invalid font style: '{}'. Expected 'solid', 'regular', or 'brands'",
-                    s
-                ))),
-            };
-        }
-        Err(PyValueError::new_err(
-            "style must be None, a FontStyle enum, or string ('solid', 'regular', 'brands')",
-        ))
     }
 }
 
@@ -325,24 +308,22 @@ impl<'a, 'py> FromPyObject<'a, 'py> for FlexOutputFormat {
     type Error = PyErr;
 
     fn extract(ob: Borrowed<'a, 'py, PyAny>) -> PyResult<Self> {
-        // Try to extract as OutputFormat enum first
-        if let Ok(fmt) = ob.extract::<OutputFormat>() {
-            return Ok(Self(fmt.into()));
+        match ob.extract::<OutputFormat>() {
+            Ok(fmt) => Ok(Self(fmt.into())),
+            Err(_) => match ob.extract::<&str>() {
+                Ok(s) => match () {
+                    _ if s.eq_ignore_ascii_case("png") => Ok(Self(ImageFormat::Png)),
+                    _ if s.eq_ignore_ascii_case("webp") => Ok(Self(ImageFormat::WebP)),
+                    _ => Err(PyValueError::new_err(format!(
+                        "Invalid output format: '{}'. Expected 'png' or 'webp'",
+                        s
+                    ))),
+                },
+                Err(_) => Err(PyValueError::new_err(
+                    "output_format must be an OutputFormat enum or string ('png', 'webp')",
+                )),
+            },
         }
-        // Try to extract as string
-        if let Ok(s) = ob.extract::<String>() {
-            return match s.to_lowercase().as_str() {
-                "png" => Ok(Self(ImageFormat::Png)),
-                "webp" => Ok(Self(ImageFormat::WebP)),
-                _ => Err(PyValueError::new_err(format!(
-                    "Invalid output format: '{}'. Expected 'png' or 'webp'",
-                    s
-                ))),
-            };
-        }
-        Err(PyValueError::new_err(
-            "output_format must be an OutputFormat enum or string ('png', 'webp')",
-        ))
     }
 }
 
@@ -521,19 +502,19 @@ impl IconRenderer {
         let (width, height, pixels) =
             render_with_optional_style(&self.inner, name, style.0, &config)?;
 
-        // Import PIL.Image and create an image from raw RGBA bytes
-        let pil_image = py.import("PIL.Image").map_err(|_| {
+        let pil_image = get_pil_image_module(py).map_err(|_| {
             pyo3::exceptions::PyImportError::new_err(
                 "Pillow is required for render_icon(). Install it with: pip install Pillow\n\
                  Alternatively, use render_icon_bytes() to get raw PNG/WebP bytes without Pillow.",
             )
         })?;
 
-        // Create PIL Image from raw RGBA bytes using frombytes()
-        // frombytes(mode, size, data) creates an image from raw pixel data
-        let bytes = PyBytes::new(py, &pixels);
-        let size = (width, height);
-        let img = pil_image.call_method1("frombytes", ("RGBA", size, bytes))?;
+        // Use frombuffer + bytearray to avoid an additional Pillow-side copy in common cases.
+        let byte_array = PyByteArray::new(py, &pixels);
+        let img = pil_image.call_method1(
+            "frombuffer",
+            ("RGBA", (width, height), byte_array, "raw", "RGBA", 0, 1),
+        )?;
 
         Ok(img.unbind())
     }

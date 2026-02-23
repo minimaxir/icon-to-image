@@ -1,6 +1,6 @@
 [package]
 name = "icon-to-image"
-version = "0.1.6"
+version = "0.2.0"
 edition = "2021"
 description = "Fast icon font to image renderer with Python bindings"
 license = "MIT"
@@ -35,19 +35,29 @@ pyo3 = { version = "0.27.2", optional = true, features = ["abi3-py310"] }
 thiserror = "2"
 anyhow = "1"
 
-# CSS parsing - use lightweight regex-based approach
-regex = "1"
-once_cell = "1"
-
 # Parallelism for supersampling
 rayon = "1"
 
 # CLI
 clap = { version = "4", features = ["derive"] }
+rustc-hash = "2.1.1"
+
+[dev-dependencies]
+criterion = { version = "0.5", features = ["html_reports"] }
+
+[[bench]]
+name = "icon_rendering"
+harness = false
 
 [profile.release]
 lto = true
 codegen-units = 1
-opt-level = "z"
+opt-level = 3
 strip = true
 panic = "abort"
+
+[profile.bench]
+lto = true
+codegen-units = 1
+opt-level = 3
+panic = "unwind"

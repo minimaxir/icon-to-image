@@ -1,74 +1,51 @@
 //! CSS parser for Font Awesome icon mappings.
 //!
 //! Extracts icon name to Unicode codepoint mappings from Font Awesome CSS files.
-//! The CSS format uses CSS custom properties: `.fa-{name}{--fa:"\xxxx"}`
 
 use crate::error::{IconFontError, Result};
-use once_cell::sync::Lazy;
-use regex::Regex;
-use std::collections::HashMap;
+use rustc_hash::FxHashMap;
+use std::collections::HashSet;
 
 /// Represents the font style/weight for an icon.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
 pub enum FontStyle {
-    /// Solid icons (weight 900) - uses fa-solid.otf
     #[default]
     Solid,
-    /// Regular icons (weight 400) - uses fa-regular.otf
     Regular,
-    /// Brand icons (weight 400) - uses fa-brands.otf
     Brands,
 }
 
 /// Icon mapping containing the Unicode codepoint and font style.
 #[derive(Debug, Clone)]
 pub struct IconMapping {
-    /// The Unicode codepoint for this icon (e.g., 0xf004 for heart)
     pub codepoint: char,
-    /// The font style to use for rendering
     pub style: FontStyle,
 }
 
 /// Parser for Font Awesome CSS files.
-///
-/// Extracts icon mappings from the CSS custom property declarations.
 #[derive(Debug)]
 pub struct CssParser {
-    /// Map of icon names (without "fa-" prefix) to their mappings
-    icons: HashMap<String, IconMapping>,
+    icons: FxHashMap<String, IconMapping>,
+    icon_names: Vec<String>,
 }
 
-// Regex to match icon rule blocks with their codepoint value.
-// Captures the entire selector group and the codepoint value.
-// Example: ".fa-circle-xmark,.fa-times-circle{--fa:"\f057"}"
-static RULE_REGEX: Lazy<Regex> =
-    Lazy::new(|| Regex::new(r#"([^{}]+)\{--fa:"([^"]+)"\}"#).expect("Invalid rule regex pattern"));
-
-// Regex to extract individual icon names from a selector group.
-// Matches ".fa-NAME" patterns and captures just the NAME part.
-static NAME_REGEX: Lazy<Regex> =
-    Lazy::new(|| Regex::new(r#"\.fa-([a-zA-Z0-9_-]+)"#).expect("Invalid name regex pattern"));
+const ICON_RULE_MARKER: &str = "{--fa:\"";
 
 impl CssParser {
     /// Parse a CSS string and extract icon mappings.
     ///
-    /// # Arguments
-    ///
-    /// * `css_content` - The CSS file content as a string
-    ///
-    /// # Returns
-    ///
-    /// A `CssParser` instance with all parsed icon mappings.
-    ///
     /// # Errors
     ///
-    /// Returns `CssParseError` if the CSS cannot be parsed.
+    /// Returns `CssParseError` if no icons found.
     pub fn parse(css_content: &str) -> Result<Self> {
-        let mut icons = HashMap::new();
-        let mut brand_icons = std::collections::HashSet::new();
+        let icon_rule_count = css_content.matches(ICON_RULE_MARKER).count();
+        let mut icons = FxHashMap::with_capacity_and_hasher(
+            icon_rule_count.saturating_mul(2),
+            Default::default(),
+        );
+        let mut brand_icons = HashSet::with_capacity(icon_rule_count / 4);
 
-        // First pass: identify brand icons by finding the brands section
-        // Brand icons are declared after `.fa-brands,.fa-classic.fa-brands,.fab{`
+        // First pass: identify brand icons from the brands CSS section
         let brand_section_start = css_content.find(".fa-brands,.fa-classic.fa-brands,.fab{");
         let brand_section_end = css_content
             .find(":host,:root{--fa-font-regular")
@@ -76,47 +53,34 @@ impl CssParser {
 
         if let (Some(start), Some(end)) = (brand_section_start, brand_section_end) {
             let brand_section = &css_content[start..end];
-            // Extract all icon names from the brands section
-            for rule_cap in RULE_REGEX.captures_iter(brand_section) {
-                let selectors = rule_cap.get(1).map(|m| m.as_str()).unwrap_or_default();
-                // Find all .fa-NAME patterns in the selector group
-                for name_cap in NAME_REGEX.captures_iter(selectors) {
-                    let name = name_cap.get(1).map(|m| m.as_str()).unwrap_or_default();
+            scan_icon_rules(brand_section, |selectors, _value| {
+                extract_fa_names(selectors, |name| {
                     if !is_utility_class(name) {
-                        brand_icons.insert(name.to_lowercase());
+                        brand_icons.insert(normalize_ascii_lower(name));
                     }
-                }
-            }
+                });
+            });
         }
 
-        // Second pass: parse all icon definitions, capturing all aliases
-        for rule_cap in RULE_REGEX.captures_iter(css_content) {
-            let selectors = rule_cap.get(1).map(|m| m.as_str()).unwrap_or_default();
-            let value = rule_cap.get(2).map(|m| m.as_str()).unwrap_or_default();
-
-            // Parse the codepoint from the value
+        // Second pass: parse all icon definitions
+        scan_icon_rules(css_content, |selectors, value| {
             if let Some(codepoint) = parse_codepoint(value) {
-                // Extract all icon names from this selector group (handles aliases)
-                for name_cap in NAME_REGEX.captures_iter(selectors) {
-                    let name = name_cap.get(1).map(|m| m.as_str()).unwrap_or_default();
-
-                    // Skip utility classes (sizes, animations, etc.)
+                extract_fa_names(selectors, |name| {
                     if is_utility_class(name) {
-                        continue;
+                        return;
                     }
 
-                    let name_lower = name.to_lowercase();
+                    let name_lower = normalize_ascii_lower(name);
                     let style = if brand_icons.contains(&name_lower) {
                         FontStyle::Brands
                     } else {
-                        // Default to Solid for non-brand icons
                         FontStyle::Solid
                     };
 
                     icons.insert(name_lower, IconMapping { codepoint, style });
-                }
+                });
             }
-        }
+        });
 
         if icons.is_empty() {
             return Err(IconFontError::CssParseError(
@@ -124,34 +88,24 @@ impl CssParser {
             ));
         }
 
-        Ok(Self { icons })
+        let icon_names = icons.keys().cloned().collect();
+
+        Ok(Self { icons, icon_names })
     }
 
-    /// Look up an icon by name.
-    ///
-    /// # Arguments
-    ///
-    /// * `name` - The icon name (with or without "fa-" prefix)
-    ///
-    /// # Returns
-    ///
-    /// The `IconMapping` if found, or `None`.
+    /// Look up an icon by name (with or without "fa-" prefix).
+    #[inline]
     pub fn get_icon(&self, name: &str) -> Option<&IconMapping> {
-        // Strip "fa-" prefix if present
         let name = name.strip_prefix("fa-").unwrap_or(name);
-        self.icons.get(&name.to_lowercase())
+        if name.bytes().all(|byte| !byte.is_ascii_uppercase()) {
+            self.icons.get(name)
+        } else {
+            let lower = name.to_ascii_lowercase();
+            self.icons.get(lower.as_str())
+        }
     }
 
-    /// Look up an icon by name with explicit style override.
-    ///
-    /// # Arguments
-    ///
-    /// * `name` - The icon name (with or without "fa-" prefix)
-    /// * `style` - The font style to use (overrides default)
-    ///
-    /// # Returns
-    ///
-    /// A modified `IconMapping` with the specified style, or `None` if icon not found.
+    /// Look up an icon with explicit style override.
     pub fn get_icon_with_style(&self, name: &str, style: FontStyle) -> Option<IconMapping> {
         self.get_icon(name).map(|mapping| IconMapping {
             codepoint: mapping.codepoint,
@@ -159,46 +113,85 @@ impl CssParser {
         })
     }
 
-    /// Get the total number of parsed icons.
     pub fn icon_count(&self) -> usize {
         self.icons.len()
     }
 
-    /// Check if an icon exists.
     pub fn has_icon(&self, name: &str) -> bool {
         self.get_icon(name).is_some()
     }
 
-    /// List all available icon names.
     pub fn list_icons(&self) -> Vec<&str> {
-        self.icons.keys().map(|s| s.as_str()).collect()
+        self.icon_names.iter().map(String::as_str).collect()
     }
 }
 
-/// Check if a class name is a utility class (not an icon).
-fn is_utility_class(name: &str) -> bool {
-    // Size classes
-    if name.ends_with('x')
-        && name
-            .chars()
-            .next()
-            .map(|c| c.is_ascii_digit())
-            .unwrap_or(false)
-    {
-        return true;
-    }
+/// Scan icon rules matching `.fa-name{--fa:"value"}` and call `on_rule(selectors, value)`.
+fn scan_icon_rules(css: &str, mut on_rule: impl FnMut(&str, &str)) {
+    let mut scan_start = 0usize;
+    let marker_len = ICON_RULE_MARKER.len();
 
+    while let Some(marker_rel) = css[scan_start..].find(ICON_RULE_MARKER) {
+        let marker = scan_start + marker_rel;
+        let selector_start = css[scan_start..marker]
+            .rfind('}')
+            .map(|idx| scan_start + idx + 1)
+            .unwrap_or(scan_start);
+        let selectors = css[selector_start..marker].trim();
+
+        let value_start = marker + marker_len;
+        let Some(quote_rel) = css[value_start..].find('"') else {
+            break;
+        };
+        let value_end = value_start + quote_rel;
+        let value = &css[value_start..value_end];
+
+        on_rule(selectors, value);
+
+        let close_rel = css[value_end..].find('}').unwrap_or(0);
+        scan_start = value_end + close_rel + 1;
+    }
+}
+
+/// Extract `.fa-*` selector names from a selector list.
+fn extract_fa_names(selectors: &str, mut on_name: impl FnMut(&str)) {
+    let bytes = selectors.as_bytes();
+    let mut idx = 0usize;
+
+    while let Some(rel) = selectors[idx..].find(".fa-") {
+        idx += rel + 4;
+        let start = idx;
+        while idx < bytes.len() {
+            let byte = bytes[idx];
+            if byte.is_ascii_alphanumeric() || byte == b'_' || byte == b'-' {
+                idx += 1;
+            } else {
+                break;
+            }
+        }
+
+        if idx > start {
+            on_name(&selectors[start..idx]);
+        }
+    }
+}
+
+#[inline]
+fn normalize_ascii_lower(name: &str) -> String {
+    if name.bytes().any(|byte| byte.is_ascii_uppercase()) {
+        name.to_ascii_lowercase()
+    } else {
+        name.to_string()
+    }
+}
+
+/// Filter out Font Awesome utility classes (sizes, animations, transforms).
+fn is_utility_class(name: &str) -> bool {
     matches!(
         name,
-        "1" | "2"
-            | "3"
-            | "4"
-            | "5"
-            | "6"
-            | "7"
-            | "8"
-            | "9"
-            | "10"
+        // Size multiplier classes (1x through 10x)
+        "1x" | "2x" | "3x" | "4x" | "5x" | "6x" | "7x" | "8x" | "9x" | "10x"
+            // Relative size classes
             | "2xs"
             | "xs"
             | "sm"
@@ -243,40 +236,23 @@ fn is_utility_class(name: &str) -> bool {
     )
 }
 
-/// Parse a Unicode codepoint from a CSS value.
-///
-/// Handles formats like:
-/// - `\f004` - hex escape
-/// - `\e005` - hex escape
-/// - `A` - literal character
-/// - `\!` - escaped literal
+/// Parse a Unicode codepoint from a CSS value (hex escape, escaped literal, or literal).
 fn parse_codepoint(value: &str) -> Option<char> {
     let value = value.trim();
-
     if value.is_empty() {
         return None;
     }
 
-    // Handle escaped hex codepoints (e.g., "\f004")
     if let Some(hex_part) = value.strip_prefix('\\') {
-        // Check if it's a hex codepoint or an escaped literal
         if hex_part.len() >= 2 && hex_part.chars().all(|c| c.is_ascii_hexdigit() || c == ' ') {
-            // It's a hex codepoint, possibly with trailing space
             let hex_clean = hex_part.trim();
             if let Ok(code) = u32::from_str_radix(hex_clean, 16) {
                 return char::from_u32(code);
             }
         }
-        // It's an escaped literal (e.g., "\!" -> "!")
         return hex_part.chars().next();
     }
 
-    // Handle literal characters (e.g., "A", "!")
-    if value.len() == 1 {
-        return value.chars().next();
-    }
-
-    // Handle multi-byte Unicode characters
     value.chars().next()
 }
 
@@ -301,6 +277,53 @@ mod tests {
         assert!(is_utility_class("brands"));
         assert!(!is_utility_class("heart"));
         assert!(!is_utility_class("github"));
+    }
+
+    #[test]
+    fn test_numeric_icons_not_utility_classes() {
+        // Single digit icons 0-9 are valid Font Awesome icons, not utility classes
+        for digit in ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"] {
+            assert!(
+                !is_utility_class(digit),
+                "Digit '{}' should NOT be a utility class",
+                digit
+            );
+        }
+        // But size classes like 1x, 2x, 10x ARE utility classes
+        assert!(is_utility_class("1x"));
+        assert!(is_utility_class("10x"));
+
+        // Brand icons ending in 'x' that start with digits should NOT be filtered
+        assert!(
+            !is_utility_class("500px"),
+            "500px brand icon should NOT be a utility class"
+        );
+    }
+
+    #[test]
+    fn test_parse_500px_brand_icon() {
+        // 500px is a brand icon that starts with digit and ends with 'x'
+        let css = r#".fa-500px{--fa:"\f26e"}"#;
+        let parser = CssParser::parse(css).unwrap();
+
+        assert!(parser.has_icon("500px"), "Icon '500px' should be parsed");
+        assert_eq!(parser.get_icon("500px").unwrap().codepoint, '\u{f26e}');
+    }
+
+    #[test]
+    fn test_parse_numeric_icons() {
+        // Test that numeric icons 1-9 are correctly parsed
+        let css = r#".fa-1{--fa:"\31 "}.fa-2{--fa:"\32 "}.fa-9{--fa:"\39 "}"#;
+        let parser = CssParser::parse(css).unwrap();
+
+        assert!(parser.has_icon("1"), "Icon '1' should be parsed");
+        assert!(parser.has_icon("2"), "Icon '2' should be parsed");
+        assert!(parser.has_icon("9"), "Icon '9' should be parsed");
+
+        // Verify correct codepoints (ASCII digits)
+        assert_eq!(parser.get_icon("1").unwrap().codepoint, '1');
+        assert_eq!(parser.get_icon("2").unwrap().codepoint, '2');
+        assert_eq!(parser.get_icon("9").unwrap().codepoint, '9');
     }
 
     #[test]
