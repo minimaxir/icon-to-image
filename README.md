@@ -8,7 +8,7 @@ A high-performance Rust library with Python bindings for rendering [Font Awesome
 
 Features:
 
-- Extremely fast icon rendering (~10ms for a 512x512 image)
+- Extremely fast icon rendering (~2ms for a 512x512 image)
 - Python bindings via PyO3
 - No Python dependencies: `Pillow` is optional only if using as an image object
 - Supersampling for high-quality antialiased output (2x by default)
@@ -41,7 +41,7 @@ Or, add to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-icon-to-image = "0.1.6"
+icon-to-image = "0.2.0"
 ```
 
 ## Command-Line Interface
@@ -127,7 +127,7 @@ gray_ghost = renderer.render_icon(
 
 ```python
 github = renderer.render_icon("github", icon_color="#333333")
-python = renderer.render_icon("python", icon_color="#3776AB")
+claude = renderer.render_icon("claude", icon_color="#DE7356")
 ```
 
 ![](docs/combined_icons_brands.webp)
