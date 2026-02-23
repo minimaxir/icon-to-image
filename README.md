@@ -4,7 +4,7 @@
 
 [Crates.io](https://crates.io/crates/icon-to-image) | [PyPI](https://pypi.org/project/icon-to-image/)
 
-A high-performance Rust library with Python bindings for rendering [Font Awesome](https://fontawesome.com) icons to images, with all the customizations you may want. This library natively includes the icons from Font Awesome 7.1.0 Free (solid, regular and brands).
+A high-performance Rust library with Python bindings for rendering [Font Awesome](https://fontawesome.com) icons to images, with all the customizations you may want. This library natively includes the icons from Font Awesome 7.2.0 Free (solid, regular and brands).
 
 Features:
 
